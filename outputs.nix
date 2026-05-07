@@ -85,7 +85,8 @@ inputs.flake-parts.lib.mkFlake { inherit inputs; } (
           installCheckPhase = ''
             runHook preInstallCheck
 
-            $out/bin/${finalAttrs.pname} | grep -q '^USAGE:'
+            $CC -ldl -o main ${./main.c}
+            $out/bin/${finalAttrs.pname} main | grep libfoo | wc -l | grep -q 3
 
             runHook postInstallCheck
           '';

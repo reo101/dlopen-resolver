@@ -36,41 +36,33 @@ def dlopen_callsites(target: Proc) -> List[int]:
 
 
 def get_libname(target: Proc, callsite: int, mappings: IntervalTree) -> Optional[str]:
-    # Seek to the call site
-    path_addr = 0
     # Seek one byte back at the time.
     # This might cause invalid instructions when performing emulation
-    found = False
     for i in range(32):
         offset = callsite - i - 1
         # 1. reset esil register
         # 2. seek to offset
         # 3. run esil emulation from current offset until callsite
         ret = target.cmd(f"ar0; s {offset}; aefa {callsite}")
-        debug(f"callsite=0x{callsite:x} offset=0x{offset}\n{ret}")
-        args = ret.split("\n")
+        debug(f"callsite=0x{callsite:x} offset=0x{offset:x}\n{ret}")
 
-        # parse first argument set at callsite
-        try:
-            path_addr = int(args[0].split(" ")[1], 16)
-        except IndexError:
-            continue
-        if mappings.at(path_addr) and path_addr != 0:
-            found = True
-            # found a valid address
-            break
-    if not found:
-        return
+        for line in ret.splitlines():
+            fields = line.split()
+            for field in fields[:2]:
+                try:
+                    path_addr = int(field, 16)
+                except ValueError:
+                    continue
+                if path_addr == 0 or not mappings.at(path_addr):
+                    continue
 
-    # resolve the address to a string
-    arg = target.cmdj(f"psj @ {path_addr}")
-    libname = arg["string"]
-    # find the end of the string by looking for a null character
-    for strlen, c in enumerate(libname):
-        if c == "\x00":
-            return libname[:strlen]
-    # otherwise return the whole string
-    return libname
+                # resolve the address to a null-terminated string
+                arg = target.cmdj(f"pszj @ {path_addr}")
+                libname = arg["string"]
+                if libname:
+                    return libname
+
+    return None
 
 
 def get_readable_mappings(target: Proc) -> IntervalTree:
