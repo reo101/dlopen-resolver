@@ -1,4 +1,7 @@
-# nix-build symlink
-/result
-# test binary
+# NiX
+result
+result-*
+/.direnv/
+
+# Test binary
 /main
